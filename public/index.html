@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japanese Learner — JLPT N5 to N1</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  header h1 { margin-bottom: 4px; }
+  header p { color: #4b5563; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  button { padding: 10px 16px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; cursor: pointer; }
+  button:hover { background: #f3f4f6; }
+  button.active { background: #111827; color: #fff; border-color: #111827; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; margin-right: 8px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .batch { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .batch-btn { min-width: 86px; text-align: center; }
+  /* Bug fix: button.active sets color:#fff (white) for nav buttons.
+     .batch-btn.active only overrode the background to pale blue,
+     leaving white text on pale blue — nearly unreadable.
+     The selected Learn character now explicitly uses dark text
+     on pale blue, with a stronger border. */
+  .batch-btn.active { background: #dbeafe; border-color: #2563eb; color: #111827; }
+  .batch-btn.active:hover { background: #bfdbfe; color: #111827; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; }
+  .badge-new { background: #e5e7eb; }
+  .badge-learning { background: #fef3c7; }
+  .badge-learned { background: #d1fae5; }
+  .browse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .browse-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+  svg { user-select: none; -webkit-user-select: none; }
+  ruby { font-size: 1.05em; }
+  ruby rt { font-size: 0.55em; }
+</style>
+</head>
+<body>
+<div id="app"><p style="padding:24px">Loading Japanese Learner…</p></div>
+<script src="js/main.js"></script>
+</body>
+</html>
