@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [reagent.dom.client :as rdom-client]
             [nihongo.data :as data]
+            [nihongo.furigana :as furi]
             [nihongo.storage :as store]))
 
 ;; ---- State ---------------------------------------------------------------
@@ -81,17 +82,64 @@
 (defn plain-furigana [s]
   (.replace (or s "") #"\{([^|]+)\|[^}]+\}" "$1"))
 
+(defn parts-view [parts]
+  [:span
+   (map-indexed
+    (fn [i part]
+      (case (first part)
+        :text ^{:key i} [:span (second part)]
+        :ruby ^{:key i} [:ruby (second part) [:rt (nth part 2)]]
+        ^{:key i} [:span ""]))
+    parts)])
+
 (defn ruby-view [furigana-text plain-text]
   (if (and (:furigana? @ui) (seq furigana-text))
-    [:span
-     (map-indexed
-      (fn [i part]
-        (case (first part)
-          :text ^{:key i} [:span (second part)]
-          :ruby ^{:key i} [:ruby (second part) [:rt (nth part 2)]]
-          ^{:key i} [:span ""]))
-      (parse-furigana furigana-text))]
+    (parts-view (parse-furigana furigana-text))
     [:span plain-text]))
+
+;; Generated furigana, for sentences with no source furigana field
+;; (all Hanabira grammar sentences, and ~27% of vocabulary examples).
+;; Segments are taken from real OpenJLPT example furigana: each
+;; kanji-containing segment's most frequent reading across 10,517
+;; sentences (see scripts/build_furigana.py). At each position the
+;; longest matching segment wins, so 日本語 -> にほんご and 日本人 ->
+;; にほんじん, not 日本 + 人. This is still generated, not source
+;; furigana: a compound never seen as a whole segment can be split
+;; into parts whose reading fits another context, so Pick of the Day
+;; marks generated furigana as generated.
+(def segments-by-first
+  (into {}
+        (map (fn [[c pairs]]
+               [c (sort-by (fn [[seg _]] (- (count seg))) pairs)])
+             (group-by (fn [[seg _]] (first seg)) furi/segments))))
+
+(defn generate-furigana-parts [ja]
+  (loop [i 0 out [] plain ""]
+    (if (>= i (count ja))
+      (if (empty? plain) out (conj out [:text plain]))
+      (let [c (nth ja i)
+            candidates (get segments-by-first c [])
+            match (some (fn [[seg reading]]
+                          (when (clojure.string/starts-with? (subs ja i) seg)
+                            [seg reading]))
+                        candidates)]
+        (if match
+          (recur (+ i (count (first match)))
+                 (conj (if (empty? plain) out (conj out [:text plain]))
+                       [:ruby (first match) (second match)])
+                 "")
+          (recur (inc i) out (str plain c)))))))
+
+(defn sentence-view [ja furigana-text]
+  "A sentence with furigana: the source furigana when present,
+   generated furigana when the sentence has no furigana field,
+   plain text when the furigana toggle is off."
+  (cond
+    (and (:furigana? @ui) (seq furigana-text))
+    (parts-view (parse-furigana furigana-text))
+    (:furigana? @ui)
+    (parts-view (generate-furigana-parts (or ja "")))
+    :else [:span (or ja "")]))
 
 ;; ---- Promotion -----------------------------------------------------------
 (defn mark-learning! [id]
@@ -346,7 +394,7 @@
       (when (:example item)
         [:div
          [:p [:strong "Example: "]
-          [ruby-view (:furigana (:example item)) (:ja (:example item))]]
+          [sentence-view (:ja (:example item)) (:furigana (:example item))]]
          [:p (:en (:example item))]])]
      :grammar
      [:div
@@ -456,7 +504,9 @@
                 " — nothing is eligible yet, so this is from the full bank of 8,901 sentences. Learn some kanji and the picks will start following what you know."))]
      [:div {:class "card"}
       [:div {:style {:font-size "36px" :line-height "1.4"}}
-       [ruby-view (:furigana pick) (:ja pick)]]
+       [sentence-view (:ja pick) (:furigana pick)]]
+      (when (and (:furigana? @ui) (empty? (:furigana pick)))
+        [:p [:small "Furigana generated from readings in the app's example sentences — not this sentence's own furigana."]])
       [:p (:en pick)]
       [:p (if (= :vocab (:kind pick))
             (str "From vocabulary: " (:display source) " (" (:reading source) ") — "

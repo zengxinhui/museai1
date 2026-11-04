@@ -79,10 +79,21 @@ using native HTML `<ruby>` — no extra library.
   13,718; grammar examples 1,510 of 1,526 in the source data), and
   the app renders that notation as ruby.
 - Hanabira grammar examples have **no** furigana field (only
-  Japanese, romaji and English), so grammar examples in this app
-  show plain Japanese. That is a data limitation, not a rendering
-  one: if a furigana source for those sentences is added later,
-  the same ruby renderer will pick it up.
+  Japanese, romaji and English), and ~27% of vocabulary examples
+  also have none. For those sentences the app **generates**
+  furigana, instead of showing plain Japanese: `src/nihongo/
+  furigana.cljs` (built by `scripts/build_furigana.py`) maps
+  5,900 kanji-containing segments to their most frequent reading
+  across all 10,517 OpenJLPT example sentences that do carry
+  furigana, and the app renders the longest matching segment at
+  each position. That gets the common cases right (私 -> わたし,
+  上手 -> じょうず, 日本語 -> にほんご, 日本人 -> にほんじん)
+  and covers 99.2% of kanji in the grammar sentences, but it is
+  still generated, not source, furigana: a compound never seen
+  as a whole segment can be split into parts whose reading fits
+  another context. Pick of the Day therefore marks generated
+  furigana as generated; Learn examples use the same generated
+  furigana silently when they have no source furigana.
 - **Furigana is always hidden in quizzes**, otherwise a reading
   question would give itself away.
 
@@ -215,6 +226,9 @@ a `let` instead.
   for furigana.
 - `public/js/` — compiled output (built, not tracked).
 - `src/nihongo/data.cljs` — generated data (11,236 items).
+- `src/nihongo/furigana.cljs` — generated furigana segment
+  dictionary (5,900 segments), built by
+  `scripts/build_furigana.py` from OpenJLPT example furigana.
 - `src/nihongo/storage.cljs` — localStorage accounts, EDN backup
   parse, and the 1/2/4/8/16/32-day review schedule.
 - `src/nihongo/core.cljs` — the app: Learn, Quiz, Review, Browse,
