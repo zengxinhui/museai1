@@ -10,7 +10,7 @@
 (defonce db (r/atom (store/load-db)))
 (defonce ui (r/atom {:view :learn :track :kana :level "N5"
                      :learn-item nil :search "" :quiz nil
-                     :new-account "" :furigana? true}))
+                     :new-account "" :furigana? true :pick-offset 0}))
 
 (add-watch db :persist
            (fn [_ _ _ new-db] (store/save-db! new-db)))
@@ -262,6 +262,58 @@
        [:div [:p "✓ Quiz finished."] [:button {:on-click #(swap! ui assoc :quiz nil)} "Back"]]
        :else [quiz-question-view])]))
 
+;; ---- Pick of the Day -----------------------------------------------------
+;; No new data: the pick bank is derived at load from the example
+;; sentences already bundled -- 7,245 vocabulary examples (first example
+;; per vocab item with an example) plus 1,656 grammar examples (first 2
+;; per Hanabira point), 8,901 in total. These are real, grammatical
+;; sentences (Tatoeba / Hanabira), never sentences invented by gluing
+;; learned words together.
+;; A pick is eligible when it contains at least 2 distinct kanji the
+;; account has Learned, or when its source word/grammar point itself is
+;; Learned. If nothing is eligible yet, the full bank is the fallback,
+;; so there is always a pick. The day's pick is deterministic from the
+;; local calendar date (same all day, changes tomorrow, no server);
+;; "Another pick" advances :pick-offset and cycles to the next pick.
+(def kanji-by-char
+  (into {} (map (fn [k] [(:display k) k]) data/kanji)))
+
+(def pick-candidates
+  (vec (concat
+        (for [v data/vocab :when (:example v)]
+          {:kind :vocab :source v :ja (:ja (:example v))
+           :furigana (:furigana (:example v)) :en (:en (:example v))
+           :level (:level v)})
+        (for [g data/grammar e (:examples g)]
+          {:kind :grammar :source g :ja (:ja e)
+           :furigana nil :en (:en e) :level (:level g)}))))
+
+(defn sentence-kanji [ja]
+  (distinct (filter #(contains? kanji-by-char (str %)) ja)))
+
+(defn kanji-char? [c]
+  (let [code (.charCodeAt (str c) 0)]
+    (and (>= code 0x4e00) (<= code 0x9fff))))
+
+(defn pick-eligible? [pick]
+  (let [learned-kanji (count (filter #(= :learned (state-of (:id (kanji-by-char %))))
+                                     (sentence-kanji (:ja pick))))]
+    (or (>= learned-kanji 2)
+        (= :learned (state-of (:id (:source pick)))))))
+
+(defn today-key []
+  (let [d (js/Date.)]
+    (str (.getFullYear d) "-" (inc (.getMonth d)) "-" (.getDate d))))
+
+(defn str-hash [s]
+  (reduce (fn [h c] (mod (+ (* h 31) (.charCodeAt (str c) 0)) 1000000007)) 0 s))
+
+(defn current-pick []
+  (let [eligible (filter pick-eligible? pick-candidates)
+        bank (if (seq eligible) (vec eligible) pick-candidates)
+        idx (mod (+ (str-hash (today-key)) (:pick-offset @ui 0)) (count bank))]
+    {:pick (nth bank idx) :eligible? (seq eligible) :bank-size (count bank)}))
+
 ;; ---- Item detail ---------------------------------------------------------
 (defn item-detail [item]
   [:div {:class "card"}
@@ -389,6 +441,51 @@
          [:small (:meaning item)] [:br]
          [state-badge (:id item)]])]]))
 
+(defn pick-view []
+  (let [{:keys [pick eligible? bank-size]} (current-pick)
+        source (:source pick)
+        kanji-items (map kanji-by-char (sentence-kanji (:ja pick)))
+        outside-kanji (seq (filter (fn [c] (and (kanji-char? c)
+                                                (not (contains? kanji-by-char (str c)))))
+                                   (:ja pick)))]
+    [:div
+     [:h2 "Pick of the Day"]
+     [:p (str "A real sentence from the app's own examples"
+              (if eligible?
+                (str ", chosen from the " bank-size " sentences that use at least 2 kanji you have Learned (or whose word/grammar point you have Learned).")
+                " — nothing is eligible yet, so this is from the full bank of 8,901 sentences. Learn some kanji and the picks will start following what you know."))]
+     [:div {:class "card"}
+      [:div {:style {:font-size "36px" :line-height "1.4"}}
+       [ruby-view (:furigana pick) (:ja pick)]]
+      [:p (:en pick)]
+      [:p (if (= :vocab (:kind pick))
+            (str "From vocabulary: " (:display source) " (" (:reading source) ") — "
+                 (:meaning source) ", JLPT " (:level pick) ".")
+            (str "From grammar: " (:display source)
+                 (when (seq (:reading source)) (str " (" (:reading source) ")"))
+                 " — " (:meaning source) ", JLPT " (:level pick) "."))]
+      [:div {:style {:display "flex" :gap "8px" :flex-wrap "wrap"}}
+       [:button {:on-click #(swap! ui update :pick-offset inc)} "Another pick"]
+       [:button {:on-click #(swap! ui assoc :view :browse
+                                   :track (:track source)
+                                   :level (:level pick)
+                                   :search (:display source))}
+        "Show source in Browse"]]]
+     [:h3 "Kanji in this sentence"]
+     (if (seq kanji-items)
+       [:div {:class "browse-grid"}
+        (for [k kanji-items]
+          ^{:key (:id k)}
+          [:div {:class "browse-card"}
+           [:span {:style {:font-size "32px"}} (:display k)] [:br]
+           (clojure.string/join ", " (concat (:onyomi k) (:kunyomi k))) [:br]
+           [:small (:meaning k)] [:br]
+           [:small (str "JLPT " (:level k) " · " (:strokes k) " strokes")] [:br]
+           [state-badge (:id k)]])]
+       [:p "This sentence uses no JLPT kanji — it's all kana."])
+     (when outside-kanji
+       [:p "Note: this sentence also contains kanji outside the JLPT lists, which aren't broken down here."])]))
+
 (defn handle-restore-file [e]
   (when-let [file (aget (.. e -target -files) 0)]
     (let [reader (js/FileReader.)]
@@ -508,7 +605,7 @@
        [:nav
         (for [[v label] [[:learn "Learn"] [:quiz "Quiz"]
                          [:review (str "Review" (when (pos? due) (str " (" due ")")))]
-                         [:browse "Browse"] [:accounts "Accounts"]]]
+                         [:browse "Browse"] [:pick "Pick of the Day"] [:accounts "Accounts"]]]
           ^{:key v}
           [:button {:class (when (= view v) "active")
                     :on-click #(swap! ui assoc :view v :quiz nil)}
@@ -524,6 +621,7 @@
                    (fn [] (if (seq (due-items)) (due-items)
                             (filter #(= :learned (state-of (:id %))) (all-items))))]
           :browse [browse-view]
+          :pick [pick-view]
           :accounts [accounts-view]
           [learn-view])]])))
 

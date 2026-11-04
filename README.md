@@ -49,7 +49,23 @@ Flow:
 4. **Browse** — a searchable reference list for the selected track
    and level (first 200 shown; search to narrow it down). Browsing
    does not change the teaching order.
-5. **Accounts** — switch, delete, download an EDN backup, or
+5. **Pick of the Day** — its own tab, between Browse and Accounts.
+   One real sentence a day, drawn from the 8,901 example sentences
+   already in the app (7,245 vocabulary examples + 1,656 grammar
+   examples). A sentence is eligible when it contains at least 2
+   distinct kanji the account has Learned, or when its source
+   word/grammar point itself is Learned; if nothing is eligible
+   yet, the full bank is the fallback. The day's pick is
+   deterministic from the local calendar date (same all day,
+   changes tomorrow, no server), and "Another pick" cycles to the
+   next eligible sentence. The view shows the sentence with
+   furigana, its English translation, its source word or grammar
+   point, and a breakdown of each JLPT kanji in it with reading,
+   meaning, level and New/Learning/Learned state. Sentences are
+   reused as-is (Tatoeba/Hanabira), never invented by gluing
+   learned words together, so a few contain words or kanji
+   outside the JLPT lists — those aren't broken down.
+6. **Accounts** — switch, delete, download an EDN backup, or
    restore from a backup file.
 
 ## Furigana
@@ -202,7 +218,8 @@ a `let` instead.
 - `src/nihongo/storage.cljs` — localStorage accounts, EDN backup
   parse, and the 1/2/4/8/16/32-day review schedule.
 - `src/nihongo/core.cljs` — the app: Learn, Quiz, Review, Browse,
-  Accounts, furigana ruby rendering, and the quiz logic.
+  Pick of the Day, Accounts, furigana ruby rendering, and the
+  quiz logic.
 - `scripts/build_data.py` — regenerates `data.cljs` from
   OpenJLPT + Hanabira + the kana tables.
 - `scripts/resolve_maven.py` — proxy-capable Maven pre-download
