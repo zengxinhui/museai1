@@ -189,8 +189,34 @@ Reagent 2.0.1 requires `reagent.dom.client/create-root`, not
 ```sh
 npm install
 npx shadow-cljs release app
-# then open public/index.html, or: npx shadow-cljs watch app
+# then open public/index.html
 ```
+
+For development with live reload instead:
+
+```sh
+scripts/watch.sh
+# open http://localhost:3000/
+```
+
+`watch.sh` auto-compiles on every code change (an incremental
+recompile takes under a second once the first build is done) and
+the browser hot-reloads: the `:after-load` hook in
+`shadow-cljs.edn` (`nihongo.core/refresh`) re-renders the app into
+the existing root, so edits show up without a manual refresh.
+Account data and UI state live in `defonce` atoms and survive the
+reload — the current account, the selected track/level/item and any
+quiz in progress are not lost. Editing `public/index.html` (or other
+static files under `public/`) reloads the whole page instead, via
+`:devtools :watch-dir`.
+
+In this workspace `watch.sh` runs the compiler directly with a
+hand-built classpath, because plain `npx shadow-cljs watch app`
+fails here the same way `npx shadow-cljs release app` does: it
+tries to resolve Maven dependencies through an old wagon that
+cannot use the egress proxy (see below). `scripts/watch.sh release app` runs a one-off
+release build. The dev build `watch` writes is unoptimised
+and `public/js/main.js` is gitignored; run a release build before sharing the app.
 
 In the container used to build this, Java cannot tunnel through
 the egress proxy (Java's `HttpURLConnection` / Maven wagon fail

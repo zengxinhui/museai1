@@ -685,3 +685,15 @@
                    (reset! app-root r)
                    r))]
     (rdom-client/render root [app])))
+
+;; Hot-reload hook, wired up as :devtools :after-load in
+;; shadow-cljs.edn. After shadow-cljs recompiles changed namespaces
+;; it calls this, which re-renders the app into the existing root so
+;; code changes show up without a manual page refresh. Account data
+;; and UI state live in defonce atoms, so they survive the reload —
+;; the current account, the selected track/level/item and any quiz in
+;; progress are not lost. Without this hook the new code was loaded
+;; but nothing re-rendered, so an edit looked like it had no effect
+;; until something else triggered a render.
+(defn refresh []
+  (init))

@@ -5,4 +5,10 @@
                 :output-dir "public/js"
                 :asset-path "/js"
                 :modules {:main {:init-fn nihongo.core/init}}
-                :devtools {:watch-dir "public"}}}}
+                ;; :watch-dir "public" reloads the page when a static
+                ;; file under public/ (e.g. index.html) changes.
+                ;; :after-load re-renders the app after shadow-cljs
+                ;; recompiles changed namespaces, so a code edit shows
+                ;; up without a manual refresh (see nihongo.core/refresh).
+                :devtools {:watch-dir "public"
+                           :after-load nihongo.core/refresh}}}}
